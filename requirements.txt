@@ -1,0 +1,17 @@
+langchain==0.3.0
+langchain-community==0.3.0
+langchain-core==0.3.0
+langchain-groq
+langchain-qdrant
+qdrant-client
+streamlit
+python-dotenv
+notebook
+pypdf
+pandas
+sentence-transformers
+networkx
+beautifulsoup4
+html2text
+rank_bm25
+langchain-huggingface
