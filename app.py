@@ -70,17 +70,45 @@ rag = get_engine()
 
 # Sidebar
 with st.sidebar:
-    st.title("Settings")
+    st.title("⚙️ Settings")
     st.markdown("---")
     
-    st.subheader("Data Ingestion")
+    # Status Panel
+    st.subheader("🔌 Connection Status")
+    if rag:
+        status = rag.get_status()
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if status.get("vector_store") == "connected":
+                st.success("Vector DB ✅")
+            else:
+                st.error("Vector DB ❌")
+        with col2:
+            if status.get("graph_store") == "connected":
+                st.success("Neo4j ✅")
+            else:
+                st.warning("Neo4j ⚠️")
+        
+        # Graph statistics
+        if status.get("graph_stats"):
+            stats = status["graph_stats"]
+            st.caption(f"📊 Graph: {stats.get('nodes', 0)} nodes, {stats.get('relationships', 0)} relations")
+    
+    st.markdown("---")
+    
+    st.subheader("📄 Data Ingestion")
     uploaded_files = st.file_uploader(
         "Upload Documents", 
         accept_multiple_files=True,
         type=['txt', 'pdf', 'csv', 'json']
     )
     
-    if uploaded_files and st.button("Ingest Documents"):
+    # Graph building toggle
+    build_graph = st.checkbox("Build Knowledge Graph", value=True, 
+                               help="Extract entities and relationships to Neo4j")
+    
+    if uploaded_files and st.button("🚀 Ingest Documents"):
         if rag:
             with st.spinner("Processing documents..."):
                 temp_paths = []
@@ -90,8 +118,10 @@ with st.sidebar:
                         temp_paths.append(tmp.name)
                 
                 try:
-                    num_chunks = rag.ingest(temp_paths)
-                    st.success(f"Successfully processed {num_chunks} chunks!")
+                    result = rag.ingest(temp_paths, build_graph=build_graph)
+                    st.success(f"✅ Processed {result['vector_chunks']} chunks!")
+                    if build_graph and result['graph_entities'] > 0:
+                        st.info(f"🔗 Created {result['graph_entities']} entities, {result['graph_relations']} relations")
                 except Exception as e:
                     st.error(f"Error during ingestion: {e}")
                 finally:
@@ -105,7 +135,16 @@ with st.sidebar:
             st.error("RAG engine not initialized. Check your credentials.")
 
     st.markdown("---")
-    st.info("Supported formats: PDF, TXT, CSV, JSON")
+    
+    # Query settings
+    st.subheader("🔍 Query Settings")
+    use_graph = st.checkbox("Use Knowledge Graph", value=True,
+                            help="Include graph context in responses")
+    st.session_state['use_graph'] = use_graph
+    
+    st.markdown("---")
+    st.info("📁 Supported formats: PDF, TXT, CSV, JSON")
+
 
 # Main Chat Interface
 st.title("Knowledge Graph & Vector RAG")
@@ -129,7 +168,8 @@ if prompt := st.chat_input("What would you like to know?"):
         if rag:
             with st.spinner("Thinking..."):
                 try:
-                    response = rag.query(prompt)
+                    use_graph = st.session_state.get('use_graph', True)
+                    response = rag.query(prompt, use_graph=use_graph)
                     st.markdown(response)
                     st.session_state.messages.append({"role": "assistant", "content": response})
                 except Exception as e:
