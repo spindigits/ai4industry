@@ -38,7 +38,7 @@ except Exception as e:
 
 # --- Sidebar ---
 with st.sidebar:
-    st.header("Document Ingestion")
+    st.header("📄 Document Ingestion")
     
     # Check LlamaParse Status
     try:
@@ -74,6 +74,49 @@ with st.sidebar:
         
         # Cleanup
         shutil.rmtree(temp_dir)
+    
+    st.divider()
+    
+    # --- Web Scraping Section ---
+    st.header("🌐 Web Scraping")
+    st.caption("Scrape web pages to enrich your RAG")
+    
+    # URL input
+    urls_input = st.text_area(
+        "Enter URLs (one per line)",
+        placeholder="https://example.com/page1\nhttps://example.com/page2",
+        height=100
+    )
+    
+    # Options
+    col1, col2 = st.columns(2)
+    with col1:
+        follow_links = st.checkbox("Follow internal links", value=False)
+    with col2:
+        max_pages = st.number_input("Max pages", min_value=1, max_value=50, value=5)
+    
+    if st.button("🚀 Scrape & Ingest", type="primary"):
+        if urls_input.strip():
+            # Parse URLs
+            urls = [url.strip() for url in urls_input.strip().split('\n') if url.strip()]
+            
+            if urls:
+                with st.spinner(f"Scraping {len(urls)} URL(s)..."):
+                    result = rag.ingest_web(
+                        urls=urls,
+                        follow_links=follow_links,
+                        max_pages=int(max_pages)
+                    )
+                
+                if "error" in result:
+                    st.error(f"Error: {result['error']}")
+                else:
+                    st.success(f"✅ Scraped {result['pages_scraped']} pages")
+                    st.json(result)
+            else:
+                st.warning("Please enter at least one valid URL")
+        else:
+            st.warning("Please enter at least one URL")
 
 # --- Main Interface ---
 tab1, tab2 = st.tabs(["💬 Chat", "📊 Metrics"])

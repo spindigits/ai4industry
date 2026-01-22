@@ -78,6 +78,31 @@ Gère l'interaction avec Neo4j et l'extraction d'entités via LLM.
     *   **Logique**: Extrait les mots-clés de la question -> Trouve les nœuds correspondants (index fulltext ou contains) -> Récupère les voisins immédiats (profondeur 1).
     *   Retourne une représentation textuelle du sous-graphe trouvé.
 
+### 🌐 `web_scraper.py` (Web Scraping)
+Module de scraping web pour enrichir automatiquement la base RAG.
+
+*   `WebScraper`:
+    *   **Headers**: Simule un navigateur Chrome pour éviter les blocages.
+    *   **Politesse**: Délai configurable entre les requêtes (par défaut 1s).
+    *   **Extraction**:
+        - Titre de la page (balise `<title>` ou `<h1>`)
+        - Texte propre (suppression des scripts, styles, nav, footer)
+        - Images avec leurs attributs alt/title
+        - Liens internes pour le suivi optionnel
+
+*   `WebToDocuments.scrape_and_convert()`:
+    *   Convertit les pages scrapées en `Document` LangChain.
+    *   Crée des documents séparés pour les descriptions d'images (si alt text présent).
+    *   **Métadonnées**: `source`, `title`, `type`, `scraped_at`, `image_count`, `link_count`.
+
+*   `scrape_urls_for_rag()`:
+    *   **Fonction utilitaire** pour un usage simple.
+    *   Paramètres:
+        - `urls`: Liste des URLs à scraper
+        - `follow_links`: Suivre les liens internes (False par défaut)
+        - `max_pages`: Limite de pages (10 par défaut)
+        - `include_images`: Inclure les métadonnées d'images (True par défaut)
+
 ### 💾 `qdrant_connect.py` (Base Vectorielle)
 Wrapper pour Qdrant.
 

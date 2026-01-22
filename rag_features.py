@@ -142,3 +142,91 @@ class HybridRetriever:
             })
             
         return result
+
+    def ingest_web(
+        self, 
+        urls: List[str], 
+        follow_links: bool = False, 
+        max_pages: int = 10
+    ) -> dict:
+        """
+        Scrape web pages and ingest them into the RAG system.
+        
+        Args:
+            urls: List of URLs to scrape
+            follow_links: Whether to follow internal links on pages
+            max_pages: Maximum number of pages to scrape
+            
+        Returns:
+            Dictionary with ingestion statistics
+        """
+        from web_scraper import scrape_urls_for_rag
+        from document_utils import split_into_chunks
+        
+        print(f"🌐 Starting web scraping for {len(urls)} URL(s)...")
+        print(f"   Follow links: {follow_links}, Max pages: {max_pages}")
+        
+        try:
+            # Scrape and convert to documents
+            documents, images = scrape_urls_for_rag(
+                urls=urls,
+                follow_links=follow_links,
+                max_pages=max_pages,
+                include_images=True
+            )
+            
+            if not documents:
+                print("⚠️ No content was scraped from the provided URLs")
+                return {
+                    "pages_scraped": 0,
+                    "vector_chunks": 0,
+                    "graph_entities": 0,
+                    "graph_relations": 0,
+                    "images_found": 0,
+                    "error": "No content could be extracted from the URLs"
+                }
+            
+            print(f"📚 Scraped {len(documents)} documents")
+            
+            # Split into chunks for better retrieval
+            chunks = split_into_chunks(documents)
+            print(f"🔪 Split into {len(chunks)} chunks")
+            
+            # Index in Qdrant
+            vector_count = self.qdrant.index_documents(chunks)
+            print(f"✅ Indexed {vector_count} chunks into Qdrant")
+            
+            result = {
+                "pages_scraped": len(set(doc.metadata.get('source', '') for doc in documents if doc.metadata.get('type') == 'web_page')),
+                "vector_chunks": vector_count,
+                "graph_entities": 0,
+                "graph_relations": 0,
+                "images_found": len(images),
+            }
+            
+            # Build knowledge graph if enabled
+            if self.use_neo4j and self.graph_rag and self.graph_rag.is_available():
+                print("🕸️ Building Knowledge Graph from web content...")
+                # Only use the main page documents for graph building (not image descriptions)
+                main_docs = [doc for doc in documents if doc.metadata.get('type') == 'web_page']
+                stats = self.graph_rag.build_graph(main_docs)
+                result.update({
+                    "graph_entities": stats["entities"],
+                    "graph_relations": stats["relations"]
+                })
+                print(f"✅ Created {stats['entities']} entities and {stats['relations']} relations")
+            
+            return result
+            
+        except Exception as e:
+            print(f"❌ Web scraping failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "pages_scraped": 0,
+                "vector_chunks": 0,
+                "graph_entities": 0,
+                "graph_relations": 0,
+                "images_found": 0,
+                "error": str(e)
+            }
