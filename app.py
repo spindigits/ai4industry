@@ -235,6 +235,9 @@ def main():
 
             with st.spinner("🤖 Traitement intelligent de la question..."):
                 result = hybrid_rag.query(question_auto, vector_store)
+                # Stocker le temps d'exécution pour le dashboard
+                if "execution_time_ms" in result:
+                    st.session_state["last_llm_time"] = result["execution_time_ms"]
 
             st.markdown("---")
             st.markdown("### ✨ Réponse")

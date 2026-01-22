@@ -1,4 +1,5 @@
 import os
+import time
 from dotenv import load_dotenv
 from langchain_mistralai import ChatMistralAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -148,6 +149,8 @@ RÉPONSE:"""
 
         prompt = ChatPromptTemplate.from_template(template)
 
+        start_time = time.time()
+        
         # 4. Générer la réponse
         chain = prompt | self.llm | StrOutputParser()
 
@@ -161,13 +164,17 @@ RÉPONSE:"""
         if privacy_alert:
             answer += "\n\n⚠️ **Certaines données identifiées comme \"private_\" ont été masquées pour des raisons de confidentialité.**"
 
+        end_time = time.time()
+        execution_time_ms = (end_time - start_time) * 1000
+
         return {
             "answer": answer,
             "sources": {
                 "vector_docs": vector_docs,
                 "graph_context": graph_context_raw
             },
-            "strategy": "hybrid"
+            "strategy": "hybrid",
+            "execution_time_ms": execution_time_ms
         }
 
     def query_simple(self, question, vector_store):
@@ -208,6 +215,8 @@ RÉPONSE:"""
         prompt = ChatPromptTemplate.from_template(template)
         chain = prompt | self.llm | StrOutputParser()
 
+        start_time = time.time()
+        
         answer = chain.invoke({
             "question": question,
             "context": vector_context
@@ -217,12 +226,16 @@ RÉPONSE:"""
         if privacy_alert:
             answer += "\n\n⚠️ **Certaines données identifiées comme \"private_\" ont été masquées pour des raisons de confidentialité.**"
 
+        end_time = time.time()
+        execution_time_ms = (end_time - start_time) * 1000
+
         return {
             "answer": answer,
             "sources": {
                 "vector_docs": vector_docs
             },
-            "strategy": "simple"
+            "strategy": "simple",
+            "execution_time_ms": execution_time_ms
         }
 
     def query(self, question, vector_store, force_strategy=None):

@@ -156,6 +156,14 @@ def render_dashboard(qdrant_client, neo4j_querier, vector_store):
             else:
                 st.error("❌ Erreur de connexion")
 
+        # Carte Performance LLM
+        st.subheader("Performance LLM")
+        last_time = st.session_state.get("last_llm_time", None)
+        if last_time is not None:
+             st.metric("Dernier temps de réponse", f"{last_time / 1000:.2f} s")
+        else:
+             st.info("Aucune requête effectuée pour l'instant")
+
         st.markdown("### 🚀 Tests Rapides")
         col_test1, col_test2 = st.columns(2)
         with col_test1:
