@@ -28,6 +28,12 @@ Le système s'appuie sur une architecture robuste :
 - **Graph Database** : Neo4j
 - **Orchestration** : LangChain & Logique personnalisée (HybridRAG)
 
+### Schéma Architecture Applicatif
+![Architecture Applicative](Livrables/shema_architecture_applicatif.png)
+
+### Architecture Technique RAG
+![Architecture Technique](Livrables/architecture_technique_rag.png)
+
 ---
 
 ## 🚀 Installation
