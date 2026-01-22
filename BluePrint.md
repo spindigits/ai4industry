@@ -10,13 +10,16 @@ Le projet suit une architecture **modulaire** où chaque fichier a une responsab
 
 ```mermaid
 graph TD
-    UI[interface.py] --> RAG[rag_features.py]
+    Auth[auth.py] --> UI[interface.py]
+    UI --> RAG[rag_features.py]
     RAG --> Qdrant[qdrant_connect.py]
     RAG --> Neo4j[neo4j_connect.py]
     RAG --> Docs[document_utils.py]
+    RAG --> Scraper[web_scraper.py]
     Qdrant --> Config[config.py]
     Neo4j --> Config
     RAG --> Config
+    Auth --> Users[(users.json)]
 ```
 
 ## 2. Statut des Services
@@ -31,6 +34,27 @@ graph TD
 ## 3. Spécifications Technique des Modules
 
 Cette section détaille les fonctions clés, en particulier celles dont la logique interne est complexe ou non-immédiate.
+
+### 🔐 `auth.py` (Authentification)
+Gère l'authentification des utilisateurs avec stockage local JSON.
+
+*   **Stockage**: `users.json` (créé automatiquement avec compte admin par défaut)
+*   **Sécurité**: Mots de passe hashés en SHA-256
+*   **Compte par défaut**: `admin` / `admin123`
+
+*   `authenticate(username, password)`:
+    *   Vérifie les credentials et retourne les infos utilisateur si valides.
+    
+*   `require_auth(st)`:
+    *   **Helper Streamlit**: Vérifie si l'utilisateur est connecté.
+    *   Si non connecté, affiche la page de login et retourne `False`.
+    *   Utilisation: `if not require_auth(st): st.stop()`
+
+*   `create_user(username, password, role, display_name)`:
+    *   Crée un nouvel utilisateur (roles: `admin` ou `user`).
+
+*   `change_password(username, old_password, new_password)`:
+    *   Change le mot de passe d'un utilisateur.
 
 ### 🧠 `rag_features.py` (Cerveau du système)
 Gère la logique de RAG Hybride et le routage des questions.
