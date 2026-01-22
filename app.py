@@ -42,19 +42,19 @@ def main():
 
 
     # Chargement automatique Neo4j (une seule fois par session)
-    if "neo4j_initialized" not in st.session_state:
-        st.toast("⏳ Start loading Neo4j Graph...", icon="⏳")
-        with st.spinner("Initialisation de la base de données Neo4j..."):
-            from src.services.neo4j_loader import Neo4jLoader
-            loader = Neo4jLoader()
-            try:
-                loader.load_all()
-                st.session_state["neo4j_initialized"] = True
-                st.toast("✅ Neo4j Graph ready!", icon="✅")
-            except Exception as e:
-                st.error(f"Erreur chargement Neo4j: {e}")
-            finally:
-                loader.close()
+    #if "neo4j_initialized" not in st.session_state:
+    #   st.toast("⏳ Start loading Neo4j Graph...", icon="⏳")
+    #   with st.spinner("Initialisation de la base de données Neo4j..."):
+    #       from src.services.neo4j_loader import Neo4jLoader
+    #       loader = Neo4jLoader()
+    #       try:
+    #           loader.load_all()
+    #           st.session_state["neo4j_initialized"] = True
+    #           st.toast("✅ Neo4j Graph ready!", icon="✅")
+    #       except Exception as e:
+    #           st.error(f"Erreur chargement Neo4j: {e}")
+    #       finally:
+    #           loader.close()
 
     # Sidebar
     with st.sidebar:
@@ -110,7 +110,7 @@ def main():
         st.markdown("### 🔧 Admin")
         col1, col2 = st.columns(2)
         with col1:
-             if st.button("🗑️ Reset Neo4j", use_container_width=True, help="Vider la base Neo4j"):
+            if st.button("🗑️ Reset Neo4j", use_container_width=True, help="Vider la base Neo4j"):
                 with st.spinner("Nettoyage de Neo4j..."):
                     from src.services.neo4j_loader import Neo4jLoader
                     loader = Neo4jLoader()
@@ -119,6 +119,19 @@ def main():
                         st.success("✅ Neo4j vidé !")
                     except Exception as e:
                         st.error(f"Erreur: {e}")
+                    finally:
+                        loader.close()
+            if st.button("🔧 Charger Neo4j", use_container_width=True, help="Charger la base Neo4j"):
+                st.toast("⏳ Start loading Neo4j Graph...", icon="⏳")
+                with st.spinner("Initialisation de la base de données Neo4j..."):
+                    from src.services.neo4j_loader import Neo4jLoader
+                    loader = Neo4jLoader()
+                    try:
+                        loader.load_all()
+                        st.session_state["neo4j_initialized"] = True
+                        st.toast("✅ Neo4j Graph ready!", icon="✅")
+                    except Exception as e:
+                        st.error(f"Erreur chargement Neo4j: {e}")
                     finally:
                         loader.close()
 
@@ -207,7 +220,12 @@ def main():
         if submitted and question_auto:
             # Analyse rapide (sans explication détaillée visuelle)
             routing = hybrid_rag.explain_routing(question_auto)
-            strategy_display = "🧠 Mode Multi-Hop (Graph + Vector)" if routing['strategy'] == "multi_hop" else "🔎 Mode Simple (Vector)"
+            if routing['strategy'] == "multi_hop":
+                strategy_display = "🧠 Mode Multi-Hop (Graph + Vector)"
+            elif routing['strategy'] == "visual":
+                strategy_display = "🖼️ Mode Visuel (Pixtral)"
+            else:
+                strategy_display = "🔎 Mode Simple (Vector)"
             
             st.markdown(f"""
                 <div style='margin-bottom: 1rem; color: #64748b; font-size: 0.9rem;'>
