@@ -149,7 +149,7 @@ def main():
 
         st.markdown("### 🧠 Modèle de Raisonnement")
         # Liste des modèles disponibles
-        available_models = ["mistral-small-latest", "mistral-large-latest", "pixtral-12b-2409"]
+        available_models = ["mistral-small-latest", "mistral-large-latest"]
         
         # Sélecteur
         selected_model = st.selectbox(
@@ -222,8 +222,6 @@ def main():
             routing = hybrid_rag.explain_routing(question_auto)
             if routing['strategy'] == "multi_hop":
                 strategy_display = "🧠 Mode Multi-Hop (Graph + Vector)"
-            elif routing['strategy'] == "visual":
-                strategy_display = "🖼️ Mode Visuel (Pixtral)"
             else:
                 strategy_display = "🔎 Mode Simple (Vector)"
             
