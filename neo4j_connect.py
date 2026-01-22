@@ -1,40 +1,64 @@
 import os
 import re
 import json
+import requests
+from requests.auth import HTTPBasicAuth
 from typing import List, Dict, Any, Optional
-from neo4j import GraphDatabase, bearer_auth
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.documents import Document
-from config import (
-    NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, 
-    NEO4J_CLIENT_ID, NEO4J_CLIENT_SECRET
-)
+from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 class Neo4jConnection:
     """Manages Neo4j database connection and operations."""
     
     def __init__(self):
         self.driver = None
+        self.use_http_api = False
+        self.http_base_url = None
         self._connect()
     
     def _connect(self):
         """Establish connection to Neo4j database."""
+        # First, try the standard Bolt driver
         try:
-            # Try OAuth2 / Bearer token auth first
-            if NEO4J_CLIENT_ID and NEO4J_CLIENT_SECRET:
-                auth = bearer_auth(NEO4J_CLIENT_SECRET)
-                self.driver = GraphDatabase.driver(NEO4J_URI, auth=auth)
-            else:
-                # Standard basic authentication
-                self.driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-            
-            # Test connection
+            from neo4j import GraphDatabase
+            self.driver = GraphDatabase.driver(
+                NEO4J_URI, 
+                auth=(NEO4J_USER, NEO4J_PASSWORD)
+            )
             self.driver.verify_connectivity()
-            print(f"✅ Connected to Neo4j at {NEO4J_URI}")
+            print(f"✅ Connected to Neo4j via Bolt at {NEO4J_URI}")
+            return
         except Exception as e:
-            print(f"⚠️ Failed to connect to Neo4j: {e}")
-            self.driver = None
+            print(f"⚠️ Bolt connection failed: {e}")
+            print("   Trying HTTP API fallback...")
+        
+        # Fallback to HTTP API (for firewall/proxy restrictions)
+        try:
+            # Convert neo4j+s:// URI to https://
+            http_url = NEO4J_URI.replace("neo4j+s://", "https://").replace("neo4j://", "http://")
+            self.http_base_url = http_url
+            
+            # Test HTTP API connectivity
+            query_url = f"{http_url}/db/neo4j/query/v2"
+            resp = requests.post(
+                query_url,
+                headers={"Content-Type": "application/json"},
+                json={"statement": "RETURN 1 as test"},
+                auth=HTTPBasicAuth(NEO4J_USER, NEO4J_PASSWORD),
+                timeout=30
+            )
+            
+            if resp.status_code in [200, 202]:
+                self.use_http_api = True
+                print(f"✅ Connected to Neo4j via HTTP API at {http_url}")
+            else:
+                print(f"⚠️ HTTP API returned status {resp.status_code}")
+                self.http_base_url = None
+        except Exception as e:
+            print(f"⚠️ Failed to connect to Neo4j via HTTP API: {e}")
+            self.http_base_url = None
     
     def close(self):
         """Close the database connection."""
@@ -42,20 +66,59 @@ class Neo4jConnection:
             self.driver.close()
     
     def is_connected(self) -> bool:
-        return self.driver is not None
+        return self.driver is not None or self.use_http_api
     
     def execute_query(self, query: str, parameters: Dict = None) -> List[Dict]:
         """Execute a Cypher query and return results."""
-        if not self.driver:
-            return []
+        if self.driver:
+            # Use Bolt driver
+            try:
+                with self.driver.session() as session:
+                    result = session.run(query, parameters or {})
+                    return [record.data() for record in result]
+            except Exception as e:
+                print(f"Query error (Bolt): {e}")
+                return []
         
-        try:
-            with self.driver.session() as session:
-                result = session.run(query, parameters or {})
-                return [record.data() for record in result]
-        except Exception as e:
-            print(f"Query error: {e}")
-            return []
+        elif self.use_http_api and self.http_base_url:
+            # Use HTTP API
+            try:
+                query_url = f"{self.http_base_url}/db/neo4j/query/v2"
+                
+                # Format query with parameters if provided
+                statement = query
+                if parameters:
+                    # Simple parameter substitution for HTTP API
+                    for key, value in parameters.items():
+                        if isinstance(value, str):
+                            statement = statement.replace(f"${key}", f"'{value}'")
+                        else:
+                            statement = statement.replace(f"${key}", str(value))
+                
+                resp = requests.post(
+                    query_url,
+                    headers={"Content-Type": "application/json"},
+                    json={"statement": statement},
+                    auth=HTTPBasicAuth(NEO4J_USER, NEO4J_PASSWORD),
+                    timeout=30
+                )
+                
+                if resp.status_code in [200, 202]:
+                    data = resp.json()
+                    # Parse the response format
+                    if "data" in data and "values" in data["data"]:
+                        columns = data["data"].get("fields", [])
+                        rows = data["data"].get("values", [])
+                        return [dict(zip(columns, row)) for row in rows]
+                    return []
+                else:
+                    print(f"HTTP API error: {resp.status_code} - {resp.text[:200]}")
+                    return []
+            except Exception as e:
+                print(f"Query error (HTTP): {e}")
+                return []
+        
+        return []
     
     def create_node(self, label: str, properties: Dict) -> Optional[int]:
         """Create a node with given label and properties."""

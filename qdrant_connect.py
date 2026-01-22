@@ -23,9 +23,22 @@ class QdrantConnector:
         
         if is_configured:
             try:
-                client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
-                client.get_collections()
-                print("✅ Connected to Qdrant Cloud")
+                # Extract host from URL (remove https:// prefix)
+                host = QDRANT_URL.replace("https://", "").replace("http://", "").rstrip("/")
+                
+                # Use host/port/https approach for better compatibility
+                # The 'url' parameter has issues with some network configurations
+                client = QdrantClient(
+                    host=host,
+                    port=443,
+                    api_key=QDRANT_API_KEY,
+                    https=True,
+                    prefer_grpc=False,  # Force REST mode
+                    timeout=60
+                )
+                # Test connection by getting collection info
+                info = client.get_collection(COLLECTION_NAME)
+                print(f"✅ Connected to Qdrant Cloud (collection: {COLLECTION_NAME}, {info.points_count} points)")
                 return client
             except Exception as e:
                 print(f"⚠️ Failed to connect to Qdrant Cloud ({e}). Falling back to local memory.")

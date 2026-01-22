@@ -7,10 +7,14 @@ from config import CHUNK_SIZE, CHUNK_OVERLAP
 def load_document(file_path: str) -> List[Document]:
     """Load a document based on its file extension."""
     ext = file_path.split('.')[-1].lower()
+    print(f"📄 Loading document: {file_path} (type: {ext})")
+    
     try:
         if ext == 'pdf':
             # Check for LlamaParse configuration
             from config import LLAMA_CLOUD_API_KEY
+            use_pypdf = True  # Default to PyPDF
+            
             if LLAMA_CLOUD_API_KEY:
                 try:
                     import nest_asyncio
@@ -22,22 +26,30 @@ def load_document(file_path: str) -> List[Document]:
                         api_key=LLAMA_CLOUD_API_KEY,
                         result_type="markdown",
                         verbose=True,
-                        language="en", # Optional: can me made configurable
+                        language="en",
                     )
                     llama_docs = parser.load_data(file_path)
+                    print(f"🦙 LlamaParse returned {len(llama_docs)} documents")
                     
-                    # Convert LlamaIndex docs to LangChain docs
-                    langchain_docs = []
-                    for doc in llama_docs:
-                        langchain_docs.append(Document(
-                            page_content=doc.text,
-                            metadata=doc.metadata or {}
-                        ))
-                    return langchain_docs
+                    # Only use LlamaParse results if we got documents
+                    if llama_docs:
+                        langchain_docs = []
+                        for doc in llama_docs:
+                            langchain_docs.append(Document(
+                                page_content=doc.text,
+                                metadata=doc.metadata or {}
+                            ))
+                        print(f"✅ Converted to {len(langchain_docs)} LangChain documents")
+                        return langchain_docs
+                    else:
+                        print("⚠️ LlamaParse returned 0 documents, falling back to PyPDFLoader...")
+                        use_pypdf = True
                 except Exception as e:
                     print(f"⚠️ LlamaParse failed, falling back to PyPDF: {e}")
-                    loader = PyPDFLoader(file_path)
-            else:
+                    use_pypdf = True
+            
+            if use_pypdf:
+                print("📖 Using PyPDFLoader...")
                 loader = PyPDFLoader(file_path)
 
         elif ext == 'txt':
@@ -50,9 +62,13 @@ def load_document(file_path: str) -> List[Document]:
             print(f"⚠️ Unsupported format: {ext}")
             return []
         
-        return loader.load()
+        docs = loader.load()
+        print(f"✅ Loaded {len(docs)} documents from {file_path}")
+        return docs
     except Exception as e:
         print(f"⚠️ Failed to load {file_path}: {e}")
+        import traceback
+        traceback.print_exc()
         return []
 
 def split_into_chunks(documents: List[Document]) -> List[Document]:

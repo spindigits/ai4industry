@@ -102,12 +102,30 @@ class HybridRetriever:
 
     def ingest(self, file_paths: List[str]) -> dict:
         """Ingest documents into enabled stores."""
+        print(f"📥 Starting ingestion for {len(file_paths)} file(s): {file_paths}")
+        
         docs = []
         for path in file_paths:
-            docs.extend(load_document(path))
+            loaded = load_document(path)
+            print(f"  → Loaded {len(loaded)} document(s) from {path}")
+            docs.extend(loaded)
+        
+        print(f"📚 Total documents loaded: {len(docs)}")
+        
+        if not docs:
+            print("⚠️ No documents were loaded! Check file format or content.")
+            return {
+                "vector_chunks": 0,
+                "graph_entities": 0,
+                "graph_relations": 0,
+                "error": "No documents could be loaded from the provided files"
+            }
             
         chunks = split_into_chunks(docs)
+        print(f"🔪 Split into {len(chunks)} chunks")
+        
         vector_count = self.qdrant.index_documents(chunks)
+        print(f"✅ Indexed {vector_count} chunks into Qdrant")
         
         result = {
             "vector_chunks": vector_count,
@@ -124,4 +142,3 @@ class HybridRetriever:
             })
             
         return result
-
