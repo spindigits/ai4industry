@@ -1,0 +1,24 @@
+# GreenPower RAG System - Phase 02
+# Vector RAG avec Qdrant + Mistral
+
+# LLM & Embeddings
+langchain-mistralai
+langchain-community
+langchain-text-splitters
+sentence-transformers
+
+# Vector Database
+qdrant-client
+
+# Document Processing
+pypdf
+python-docx
+
+# Interface
+gradio
+
+# Configuration
+python-dotenv
+
+# Phase 03 (à décommenter quand prêt)
+# neo4j
