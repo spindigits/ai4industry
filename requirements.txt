@@ -20,3 +20,7 @@ langchain-neo4j
 llama-parse
 llama-index-core
 nest_asyncio
+
+reflex
+
+reflex==0.8.26

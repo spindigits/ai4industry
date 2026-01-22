@@ -9,9 +9,15 @@ from qdrant_connect import QdrantConnector
 from document_utils import load_document, split_into_chunks
 
 class HybridRetriever:
-    """Core RAG logic with routing."""
+    """Core RAG logic with routing and knowledge graph."""
     
-    def __init__(self, use_neo4j: bool = False):
+    def __init__(self, use_neo4j: bool = True):
+        """
+        Initialize the hybrid retriever.
+        
+        Args:
+            use_neo4j: Enable Neo4J knowledge graph (default: True)
+        """
         self.use_neo4j = use_neo4j
         
         if not GROQ_API_KEY or "your_groq_api_key" in GROQ_API_KEY:
@@ -27,9 +33,14 @@ class HybridRetriever:
         self.qdrant = QdrantConnector()
         self.retriever = self.qdrant.get_retriever()
         
+        # Always try to initialize GraphRAG when use_neo4j is True
         self.graph_rag = None
         if self.use_neo4j:
             self.graph_rag = GraphRAG(llm=self.llm)
+            if self.graph_rag.is_available():
+                print("✅ Neo4J GraphRAG enabled - entities will be extracted automatically")
+            else:
+                print("⚠️ Neo4J not connected - graph features disabled")
 
         # Routing patterns
         self.patterns = {
@@ -42,6 +53,96 @@ class HybridRetriever:
                 r'historique', r'lien', r'impact'
             ]
         }
+        
+        # Contextualization prompt for conversational memory
+        self.contextualize_prompt = ChatPromptTemplate.from_messages([
+            ("system", """You are a query reformulation assistant. Your job is to rewrite the user's question 
+so that it is self-contained and can be understood without the conversation history.
+
+Rules:
+- Resolve all pronouns (it, this, that, its, their, sa, son, ce, cette, etc.)
+- Include relevant context from the history
+- Keep the reformulated question concise but complete
+- If the question is already self-contained, return it as-is
+- Output ONLY the reformulated question, nothing else
+- Preserve the original language (French/English)
+
+Examples:
+History: "User: What is the price of SolarMax 500?"
+Current: "And what about its warranty?"
+Reformulated: "What is the warranty of SolarMax 500?"
+
+History: "User: Tell me about GreenPower panels"
+Current: "How much do they cost?"
+Reformulated: "How much do GreenPower panels cost?"
+"""),
+            ("human", """Conversation history:
+{history}
+
+Current question: {question}
+
+Reformulated question:""")
+        ])
+
+    def contextualize_query(self, query: str, chat_history: List[dict] = None) -> str:
+        """
+        Reformulate a query to be self-contained using conversation history.
+        
+        Args:
+            query: The current user question
+            chat_history: List of previous messages [{"role": "user/assistant", "content": "..."}]
+            
+        Returns:
+            Reformulated query that is self-contained
+        """
+        # If no history or empty, return as-is
+        if not chat_history or len(chat_history) == 0:
+            return query
+        
+        # Check if query likely needs contextualization
+        # (contains pronouns or is very short)
+        needs_context_hints = [
+            r'\b(it|its|this|that|these|those|they|them|their)\b',
+            r'\b(il|elle|ils|elles|ce|cette|ces|son|sa|ses|le|la|les)\b',
+            r'\b(and|et|also|aussi|same|même)\b',
+        ]
+        
+        needs_context = any(re.search(pattern, query.lower()) for pattern in needs_context_hints)
+        
+        # Also check if query is very short (likely needs context)
+        if len(query.split()) <= 4:
+            needs_context = True
+        
+        if not needs_context:
+            return query
+        
+        try:
+            # Format history for the prompt (last 6 messages max)
+            recent_history = chat_history[-6:] if len(chat_history) > 6 else chat_history
+            history_text = "\n".join([
+                f"{msg['role'].capitalize()}: {msg['content'][:200]}" 
+                for msg in recent_history
+            ])
+            
+            # Call LLM to reformulate
+            chain = self.contextualize_prompt | self.llm | StrOutputParser()
+            reformulated = chain.invoke({
+                "history": history_text,
+                "question": query
+            })
+            
+            reformulated = reformulated.strip()
+            
+            # Basic validation - if result is empty or too long, use original
+            if not reformulated or len(reformulated) > len(query) * 3:
+                return query
+                
+            print(f"🔄 Query contextualized: '{query}' → '{reformulated}'")
+            return reformulated
+            
+        except Exception as e:
+            print(f"⚠️ Contextualization failed: {e}")
+            return query
 
     def route_query(self, query: str) -> str:
         """Determine which retrieval method to use."""

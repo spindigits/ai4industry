@@ -48,7 +48,7 @@ with st.sidebar:
     # User info and logout
     user = st.session_state.user
     st.markdown(f"👤 **{user['display_name']}** ({user['role']})")
-    if st.button("🚪 Logout", use_container_width=True):
+    if st.button("🚪 Logout"):
         logout(st)
         st.rerun()
     
@@ -153,8 +153,14 @@ with tab1:
             with st.spinner("Thinking..."):
                 start_time = time.time()
                 
-                chunks, route, timings = rag.retrieve(prompt)
-                response = rag.generate_answer(prompt, chunks, route)
+                # Contextualize query using conversation history
+                contextualized_query = rag.contextualize_query(
+                    prompt, 
+                    st.session_state.messages[:-1]  # Exclude current message
+                )
+                
+                chunks, route, timings = rag.retrieve(contextualized_query)
+                response = rag.generate_answer(contextualized_query, chunks, route)
                 
                 end_time = time.time()
                 latency = end_time - start_time
@@ -167,6 +173,8 @@ with tab1:
                 with st.expander("Debug Details"):
                     st.write(f"Route used: **{route}**")
                     st.write(f"Latency: **{latency:.4f}s**")
+                    if contextualized_query != prompt:
+                        st.write(f"🔄 Contextualized query: *{contextualized_query}*")
                     st.write("Context chunks:", chunks)
 
 with tab2:

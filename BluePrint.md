@@ -74,7 +74,15 @@ Gère la logique de RAG Hybride et le routage des questions.
 
 *   `ingest(file_paths: List[str]) -> dict`:
     *   **Logging amélioré**: Affiche le nombre de documents chargés, chunks créés, et points indexés.
+    *   **Neo4J activé par défaut**: Crée automatiquement les entités et relations dans le graphe.
     *   Retourne un dictionnaire avec `vector_chunks`, `graph_entities`, `graph_relations`.
+
+*   `contextualize_query(query: str, chat_history: List[dict]) -> str`:
+    *   **Mémoire conversationnelle**: Reformule les questions pour les rendre autonomes.
+    *   Résout les pronoms (it, this, sa, son, ce, cette, etc.)
+    *   Utilise les 6 derniers messages de l'historique.
+    *   **Optimisation**: Ne reformule que si nécessaire (détecte les pronoms ou questions courtes).
+    *   Exemple: "Et sa garantie ?" → "Quelle est la garantie de SolarMax 500 ?"
 
 ### 🕸️ `neo4j_connect.py` (Graphe de Connaissances)
 Gère l'interaction avec Neo4j et l'extraction d'entités via LLM.

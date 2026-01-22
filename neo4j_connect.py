@@ -33,6 +33,7 @@ class Neo4jConnection:
         except Exception as e:
             print(f"⚠️ Bolt connection failed: {e}")
             print("   Trying HTTP API fallback...")
+            self.driver = None  # Crucial: Reset driver so we use HTTP fallback
         
         # Fallback to HTTP API (for firewall/proxy restrictions)
         try:
@@ -85,20 +86,16 @@ class Neo4jConnection:
             try:
                 query_url = f"{self.http_base_url}/db/neo4j/query/v2"
                 
-                # Format query with parameters if provided
-                statement = query
-                if parameters:
-                    # Simple parameter substitution for HTTP API
-                    for key, value in parameters.items():
-                        if isinstance(value, str):
-                            statement = statement.replace(f"${key}", f"'{value}'")
-                        else:
-                            statement = statement.replace(f"${key}", str(value))
+                # Use HTTP API with parameters
+                payload = {
+                    "statement": query,
+                    "parameters": parameters or {}
+                }
                 
                 resp = requests.post(
                     query_url,
                     headers={"Content-Type": "application/json"},
-                    json={"statement": statement},
+                    json=payload,
                     auth=HTTPBasicAuth(NEO4J_USER, NEO4J_PASSWORD),
                     timeout=30
                 )
@@ -176,19 +173,20 @@ class GraphRAG:
         if not self.llm:
             return {"entities": [], "relations": []}
         
+        # Note: Double curly braces {{ }} are used to escape them in the template
         extraction_prompt = ChatPromptTemplate.from_messages([
             ("system", """You are an expert at extracting entities and relationships from text.
 Extract entities (people, organizations, concepts, locations, etc.) and relationships between them.
 
 Return your response as a valid JSON object with this structure:
-{
+{{
     "entities": [
-        {"name": "entity name", "type": "PERSON|ORGANIZATION|CONCEPT|LOCATION|PRODUCT|EVENT", "description": "brief description"}
+        {{"name": "entity name", "type": "PERSON|ORGANIZATION|CONCEPT|LOCATION|PRODUCT|EVENT", "description": "brief description"}}
     ],
     "relations": [
-        {"from": "entity1 name", "to": "entity2 name", "type": "RELATIONSHIP_TYPE", "description": "brief description"}
+        {{"from": "entity1 name", "to": "entity2 name", "type": "RELATIONSHIP_TYPE", "description": "brief description"}}
     ]
-}
+}}
 
 Rules:
 - Entity names should be normalized (proper capitalization, full names)

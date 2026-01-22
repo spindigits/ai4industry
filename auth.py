@@ -248,7 +248,7 @@ def show_login_page(st):
             with col_a:
                 remember = st.checkbox("Remember me")
             
-            submitted = st.form_submit_button("🔐 Login", use_container_width=True)
+            submitted = st.form_submit_button("🔐 Login")
             
             if submitted:
                 if username and password:
