@@ -17,3 +17,6 @@ rank_bm25
 langchain-huggingface
 neo4j
 langchain-neo4j
+llama-parse
+llama-index-core
+nest_asyncio

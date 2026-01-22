@@ -9,7 +9,37 @@ def load_document(file_path: str) -> List[Document]:
     ext = file_path.split('.')[-1].lower()
     try:
         if ext == 'pdf':
-            loader = PyPDFLoader(file_path)
+            # Check for LlamaParse configuration
+            from config import LLAMA_CLOUD_API_KEY
+            if LLAMA_CLOUD_API_KEY:
+                try:
+                    import nest_asyncio
+                    nest_asyncio.apply()
+                    from llama_parse import LlamaParse
+                    
+                    print("🦙 Using LlamaParse for PDF ingestion...")
+                    parser = LlamaParse(
+                        api_key=LLAMA_CLOUD_API_KEY,
+                        result_type="markdown",
+                        verbose=True,
+                        language="en", # Optional: can me made configurable
+                    )
+                    llama_docs = parser.load_data(file_path)
+                    
+                    # Convert LlamaIndex docs to LangChain docs
+                    langchain_docs = []
+                    for doc in llama_docs:
+                        langchain_docs.append(Document(
+                            page_content=doc.text,
+                            metadata=doc.metadata or {}
+                        ))
+                    return langchain_docs
+                except Exception as e:
+                    print(f"⚠️ LlamaParse failed, falling back to PyPDF: {e}")
+                    loader = PyPDFLoader(file_path)
+            else:
+                loader = PyPDFLoader(file_path)
+
         elif ext == 'txt':
             loader = TextLoader(file_path, encoding='utf-8')
         elif ext == 'csv':

@@ -24,3 +24,6 @@ EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 COLLECTION_NAME = "hybrid_rag_collection"
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
+
+# Llama Cloud Configuration
+LLAMA_CLOUD_API_KEY = os.getenv("LLAMA_CLOUD_API_KEY")

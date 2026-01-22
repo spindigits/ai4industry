@@ -54,24 +54,30 @@ class HybridRetriever:
                     
         return 'hybrid'
 
-    def retrieve(self, query: str) -> Tuple[List[Any], str]:
+    def retrieve(self, query: str) -> Tuple[List[Any], str, dict]:
         """Retrieve context based on routing."""
+        import time
         route = self.route_query(query)
         chunks = []
+        timings = {"qdrant": 0.0, "neo4j": 0.0}
         
         if route in ['qdrant', 'hybrid']:
             # Vector search
+            start = time.time()
             chunks.extend(self.retriever.invoke(query))
+            timings["qdrant"] = time.time() - start
             
         if route in ['neo4j', 'hybrid'] and self.use_neo4j and self.graph_rag and self.graph_rag.is_available():
             # Graph search (returning as text/string for now, wrapped in list for consistency)
+            start = time.time()
             graph_context = self.graph_rag.query_graph(query)
             if graph_context:
                 # We wrap it in a mock object or string to treat as a chunk
                 from langchain_core.documents import Document
                 chunks.append(Document(page_content=f"Generic Graph Context: {graph_context}", metadata={"source": "neo4j"}))
+            timings["neo4j"] = time.time() - start
 
-        return chunks, route
+        return chunks, route, timings
 
     def generate_answer(self, query: str, context_chunks: List[Any], route: str) -> str:
         """Generate answer from context."""
