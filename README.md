@@ -49,7 +49,7 @@ Le système s'appuie sur une architecture robuste :
 1. **Cloner le dépòt**
    ```bash
    git clone <votre-repo-url>
-   cd ragmultihop-main
+   cd rag_hybride_grp_1
    ```
 
 2. **Créer un environnement virtuel**
